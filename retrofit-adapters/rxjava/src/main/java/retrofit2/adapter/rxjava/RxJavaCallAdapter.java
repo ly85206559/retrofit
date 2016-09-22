@@ -18,12 +18,10 @@ package retrofit2.adapter.rxjava;
 import java.lang.reflect.Type;
 import retrofit2.Call;
 import retrofit2.CallAdapter;
-import retrofit2.Response;
 import rx.Observable;
-import rx.Observable.OnSubscribe;
 import rx.Scheduler;
 
-final class RxJavaCallAdapter implements CallAdapter<Object> {
+final class RxJavaCallAdapter<R> implements CallAdapter<R, Object> {
   private final Type responseType;
   private final Scheduler scheduler;
   private final boolean isResult;
@@ -45,25 +43,24 @@ final class RxJavaCallAdapter implements CallAdapter<Object> {
     return responseType;
   }
 
-  @Override public <R> Object adapt(Call<R> call) {
-    OnSubscribe<Response<R>> callFunc = new CallOnSubscribe<>(call);
+  @Override public Object adapt(Call<R> call) {
+    ResponseCallable<R> resultCallable = new ResponseCallable<>(call);
 
-    OnSubscribe<?> func;
+    Observable<?> observable;
     if (isResult) {
-      func = new ResultOnSubscribe<>(callFunc);
+      observable = Observable.fromCallable(new ResultCallable<>(resultCallable));
     } else if (isBody) {
-      func = new BodyOnSubscribe<>(callFunc);
+      observable = Observable.fromCallable(new BodyCallable<>(resultCallable));
     } else {
-      func = callFunc;
+      observable = Observable.fromCallable(resultCallable);
     }
-    Observable<?> observable = Observable.create(func);
 
     if (scheduler != null) {
       observable = observable.subscribeOn(scheduler);
     }
 
     if (isSingle) {
-      return SingleHelper.toSingle(observable);
+      return observable.toSingle();
     }
     if (isCompletable) {
       return CompletableHelper.toCompletable(observable);
@@ -78,16 +75,6 @@ final class RxJavaCallAdapter implements CallAdapter<Object> {
   private static final class CompletableHelper {
     static Object toCompletable(Observable<?> observable) {
       return observable.toCompletable();
-    }
-  }
-
-  /**
-   * Separate static class defers classloading and bytecode verification since Single is not an
-   * RxJava stable API yet.
-   */
-  private static final class SingleHelper {
-    static Object toSingle(Observable<?> observable) {
-      return observable.toSingle();
     }
   }
 }

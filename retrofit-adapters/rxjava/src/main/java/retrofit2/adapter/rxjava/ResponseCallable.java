@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Square, Inc.
+ * Copyright (C) 2016 Jake Wharton
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package retrofit2.helpers;
+package retrofit2.adapter.rxjava;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Type;
-import retrofit2.CallAdapter;
-import retrofit2.Retrofit;
+import java.io.IOException;
+import java.util.concurrent.Callable;
+import retrofit2.Call;
+import retrofit2.Response;
 
-public final class NonMatchingCallAdapterFactory extends CallAdapter.Factory {
-  public boolean called;
+final class ResponseCallable<T> implements Callable<Response<T>> {
+  private final Call<T> call;
 
-  @Override
-  public CallAdapter<?, ?> get(Type returnType, Annotation[] annotations, Retrofit retrofit) {
-    called = true;
-    return null;
+  ResponseCallable(Call<T> call) {
+    this.call = call;
+  }
+
+  @Override public Response<T> call() throws IOException {
+    // Since Call is a one-shot type, clone it for each new caller.
+    return call.clone().execute();
   }
 }
